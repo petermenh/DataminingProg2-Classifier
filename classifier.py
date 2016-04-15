@@ -8,42 +8,26 @@ References used:
 http://www.nltk.org/index.html
 http://www.nltk.org/book/ch01.html
 
-Code snippets from programming assignment 1 solution
+Tokenizer from programming assignment 1 solution
 '''
 import math
 import time
 import os
-import operator
 from math import log10, sqrt
-from collections import Counter
 from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 import pandas
-import numpy
-import matplotlib.pyplot as plt
 import csv as csv
 
 mytokenizer = RegexpTokenizer(r'[a-zA-Z0-9]+')
 stemmer = PorterStemmer()
 sortedstopwords = sorted(stopwords.words('english'))
-total_puid_prod_des = []
-attTermDict = {}
-attPuidDict = {}
-prodDesTermDict = {}
-prodDesPuidDict = {}
 trainPuidDict = {}
 puidDict = {}
-attVectorLength = 0
-prodDesVectorLength = 0
 brandTok = []
-brandFound = False 
 brand = 'brand'
-tf = 'tf'
-prior = 'prior'
-cProb = 'cProb'
-totalTerms = 'totalTerms'
-uniqueTerms = 'uniqueTerms'
+prior = 0
 terms = 'terms'
 totRel = 'totRel'
 aveRel = 'aveRel'
@@ -63,9 +47,13 @@ os.system('cls')
 print('Training...')
 start_time = time.time()
 train_csv = pandas.read_csv('train.csv', encoding="ISO-8859-1")
-
+count = 0
 
 for i in range(0,len(train_csv)):
+    count +=1
+    if count == 10000:
+        print('%{0:.0f} done...'.format((i/len(train_csv))*100) )
+        count = 0
 
     if type(train_csv.search_term[i])==float:
         if math.isnan(csvAtt.name[i]):
@@ -91,9 +79,7 @@ for i in range(0,len(train_csv)):
         trainPuidDict[train_csv.product_uid[i]][totRel] += train_csv.relevance[i]
         tempAve = trainPuidDict[train_csv.product_uid[i]][totRel]/(3*trainPuidDict[train_csv.product_uid[i]][numofP])
         trainPuidDict[train_csv.product_uid[i]][aveRel] = tempAve
-print('.')
-print('.')
-print('.')
+
 print('Training time: ', time.time()-start_time)
 print()
 
@@ -150,7 +136,7 @@ print('%0 done...')
 for i in range(0,len(pro_des_csv)):
     count +=1
 
-    if count == 100000:
+    if count == 15000:
         print('%{0:.0f} done...'.format((i/len(pro_des_csv))*100) )
         count = 0
 
@@ -183,25 +169,34 @@ with open('subtest.csv', 'w', newline='') as outfile:
         searchTok = tokenize(test_csv.search_term[i])
         test_id = test_csv.id[i]
         test_puid = test_csv.product_uid[i]
+        test_title = test_csv.product_title[i]
+        search_titleTok = tokenize(test_csv.product_title[i])
+        for i in searchTok:
+            if i in search_titleTok:
+                score += .5
 
-        for t in searchTok:
-            prior = 0
-            if t in puidDict[test_puid][brand]:
-                score +=1
-                if score >= 3.0:
-                    score = 3.0
-            else:
-                if t in trainPuidDict[train_csv.product_uid[i]][terms]:
-                    prior = trainPuidDict[train_csv.product_uid[i]][aveRel]
 
-                tTop = puidDict[test_puid][terms].count(t)+1
-                tBot = len(puidDict[test_puid][terms]) + len(set(puidDict[test_puid][terms]))
-                condProb = tTop/tBot
-                score += prior * condProb
-                if score >= 3:
-                    score = 3.0
-                print(score)
+        if (test_puid in puidDict) and (test_puid in trainPuidDict):
+            for t in searchTok:
+                prior = 1
+                if t in puidDict[test_puid][brand]:
+                    score +=1
+                    if score >= 3.0:
+                        score = 3.0
 
+                else:
+                    if t in trainPuidDict[test_puid][terms]:
+                        prior = trainPuidDict[test_puid][aveRel]
+
+                    tTop = puidDict[test_puid][terms].count(t)+1
+                    tBot = len(puidDict[test_puid][terms]) + len(set(puidDict[test_puid][terms]))
+                    condProb = tTop/tBot
+                    score += (prior * condProb)
+                    if score >= 3:
+                        score = 3.0
+
+        if score >= 3:
+            score = 3.0
         writer.writerow([test_id, '%.2f'%score])
 
 print('test time: ', time.time()-start_time)
